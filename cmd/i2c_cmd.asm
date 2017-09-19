@@ -32,8 +32,8 @@ pint8u		EQU	4DH
 phex16		EQU	36H
 ghex16		EQU	3CH
 
-maxstr		EQU	30		;Max lenth of command string
-location	EQU	8000H
+maxstr		EQU	14		;Max lenth of command string
+location	EQU	0A000H
 ; the following bits will be set in the status byte:
 
 tout		EQU	00000010B		;I2C time out status.
@@ -49,9 +49,19 @@ DB     0,0,0,0                 ;Timestamp mm, ss, YY, MM
 DB     0,0,0,0                 ;DD, hh, mm, ss
 DB     0,0,0,0                 ;user defined
 DB     255,255,255,255         ;length and checksum (255=unused)
-DB     "Explorer",0
+DB     "DOS",0
 ORG    location+64         
 	
+;ram:
+;0000 filename1 00 ADH ADL not_care
+;0010 filename2 00 ADH ADL not_care
+;0020 filename3 00 ADH ADL not_care
+;0030 filename4 00 ADH ADL not_care
+;0040 filename5 00 ADH ADL not_care
+;0050 filename6 00 ADH ADL not_care
+;0060 filename7 01 STR not_care		- prgm on disk (STR - sector number)
+;0070 filename8 01 STR not_care
+;0080 filename9 01 STR not_care
 	;clear ram
 	mov dptr, #1FFFH
 	
@@ -64,158 +74,204 @@ cl_2:
 	movx @dptr, a 
 	djnz dpl, cl_2
 	
-	; TODO load this by copy rom to ram!!!
-	; save
-	; reboot
+	mov dptr, #cmd_reboot
+	acall ld
 	mov dptr, #0
-	mov a, #'r'
-	movx @dptr, a
-	inc dptr
-	mov a, #'e'
-	movx @dptr, a
-	inc dptr
-	mov a, #'b'
-	movx @dptr, a
-	inc dptr
-	mov a, #'o'
-	movx @dptr, a
-	inc dptr
-	mov a, #'o'
-	movx @dptr, a
-	inc dptr
-	mov a, #'t'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	
-	; help
+	acall sv
+	mov dptr, #cmd_help
+	acall ld
+	mov dptr, #10H
+	acall sv
+	mov dptr, #cmd_?
+	acall ld
 	mov dptr, #20H
-	mov a, #'h'
-	movx @dptr, a
-	inc dptr
-	mov a, #'e'
-	movx @dptr, a
-	inc dptr
-	mov a, #'l'
-	movx @dptr, a
-	inc dptr
-	mov a, #'p'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #HIGH help
-	movx @dptr, a
-	inc dptr
-	mov a, #LOW help
-	movx @dptr, a
-	
-	; ?
+	acall sv
+	mov dptr, #cmd_diskinfo
+	acall ld
+	mov dptr, #30H
+	acall sv
+	mov dptr, #cmd_dump
+	acall ld
 	mov dptr, #40H
-	mov a, #'?'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #HIGH help
-	movx @dptr, a
-	inc dptr
-	mov a, #LOW help
-	movx @dptr, a
-	
-	; diskinfo
+	acall sv
+	mov dptr, #cmd_load
+	acall ld
+	mov dptr, #50H
+	acall sv
+	mov dptr, #cmd_dir
+	acall ld
 	mov dptr, #60H
-	mov a, #'d'
-	movx @dptr, a
-	inc dptr
-	mov a, #'i'
-	movx @dptr, a
-	inc dptr
-	mov a, #'s'
-	movx @dptr, a
-	inc dptr
-	mov a, #'k'
-	movx @dptr, a
-	inc dptr
-	mov a, #'i'
-	movx @dptr, a
-	inc dptr
-	mov a, #'n'
-	movx @dptr, a
-	inc dptr
-	mov a, #'f'
-	movx @dptr, a
-	inc dptr
-	mov a, #'o'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #HIGH diskinfo
-	movx @dptr, a
-	inc dptr
-	mov a, #LOW diskinfo
-	movx @dptr, a
-	
-	; dump
-	mov dptr, #80H
-	mov a, #'d'
-	movx @dptr, a
-	inc dptr
-	mov a, #'u'
-	movx @dptr, a
-	inc dptr
-	mov a, #'m'
-	movx @dptr, a
-	inc dptr
-	mov a, #'p'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #HIGH dump
-	movx @dptr, a
-	inc dptr
-	mov a, #LOW dump
-	movx @dptr, a
-	
-	; load
-	mov dptr, #80H
-	mov a, #'l'
-	movx @dptr, a
-	inc dptr
-	mov a, #'o'
-	movx @dptr, a
-	inc dptr
-	mov a, #'a'
-	movx @dptr, a
-	inc dptr
-	mov a, #'d'
-	movx @dptr, a
-	inc dptr
-	mov a, #0
-	movx @dptr, a
-	inc dptr
-	mov a, #HIGH load
-	movx @dptr, a
-	inc dptr
-	mov a, #LOW load
-	movx @dptr, a
+	acall sv
+nextcmd		EQU	70H	;Change that if add cmds!!!
 	; find a program on a disk
-	acall findheader
-	
+	acall dir_load
 	acall show_header
+	ajmp start
+	
+ld:	
+	mov r1, #10H
+	mov r0, #16
+ld1:	
+	movx a, @dptr
+	mov @r1, a
+	inc dptr
+	inc r1
+	djnz r0, ld1
+	ret
+
+sv:
+	mov r1, #10H
+	mov r0, #16
+sv1:
+	mov a, @r1
+	movx @dptr, a
+	inc r1
+	inc dptr
+	djnz r0, sv1
+	ret	
+;------------------------------------------------------	
+dir:
+	mov dptr, #dir_msg
+	lcall pstr
+	mov r1, #0
+dir0:
+	acall find
+	
+	mov a, r3
+	jnz dir2
+dir1:
+	inc r1
+	cjne r1, #128, dir0
+	ajmp start
+dir2:
+	acall showfile
+	ajmp dir1
+;----------------------------	
+dir_load:			; Load all program names to RAM
+	mov dph, #0		; 0070 - first program record for now after embedded cmd's
+	mov r2, #nextcmd
+	mov r1, #0		; MSB I2C Address
+dl0:
+	acall find		; scan sector. Set r3 is one if header found
+	
+	mov a, r3		; copy r3
+	jnz dl2			; if not zero then jump dl2
+dl1:				; there we're if no header found
+	inc r1			; increment MSB I2C address
+	cjne r1, #128, dl0	; If it's not last address then jump dl0
+	ret			; else return
+dl2:				; There we're if header found
+	acall dlfile		; Call move filename to iram
+	push 01
+	acall sv;ajmp $		; Save filename to xram
+	pop 01
+	mov a, #10H		;{
+	add a, r2		; Increment r2 and dpl
+	mov r2, a		;}
+	jnz dl3
+	inc dph
+dl3:
+	mov dpl, a
+	
+	ajmp dl1	
+	
+dlfile:
+	mov r0, #10H
+	acall i2cstart
+	mov a, #0A0H						;AT24C256 Slave address TODO add register for other EEPROM's!!!
+	acall i2cput
+	mov a, r1
+	acall i2cput
+	mov a, #20H
+	acall i2cput
+	acall i2cstart
+	mov a, #0A1H
+	acall i2cput
+dlf_0:
+	acall i2cget
+	jz dlf_1
+	mov @r0, a
+	inc r0
+	
+	ajmp dlf_0
+dlf_1:	
+	acall i2cstop
+	mov @r0, #01H
+	inc r0
+	mov @r0, 1
+	
+	ret
+;----------------------------	
+findheader:
+	mov a, #0FFH		; First sector
+fh_0:
+	inc a
+	push ACC
+	acall find
+	pop ACC
+	cjne a, #128, fh_0	
+	ret			; end of disk
+; Subroutine for searching a file header on a sector (a - number of sector)
+; OUT: if carry flag is set then file is present
+find:
+	mov r3, #0	; flag
+	acall i2cstart
+	mov a, #0A0H						;AT24C256 Slave address TODO add register for other EEPROM's!!!
+	acall i2cput
+	mov a, r1
+	acall i2cput
+	mov a, #0H
+	acall i2cput
+	acall i2cstart
+	mov a, #0A1H
+	acall i2cput
+	acall i2cget
+	cjne a, #0A5H, fh_1
+	acall i2cget
+	cjne a, #0E5H, fh_1
+	acall i2cget
+	cjne a, #0E0H, fh_1
+	acall i2cget
+	cjne a, #0A5H, fh_1
+	; There is we found a file in EEPROM
+	mov r3, #1	; flag
+fh_1:	
+	acall i2cstop
+	ret
+	
+	
+showfile:
+	acall i2cstart
+	mov a, #0A0H						;AT24C256 Slave address TODO add register for other EEPROM's!!!
+	acall i2cput
+	mov a, r1
+	acall i2cput
+	mov a, #20H
+	acall i2cput
+	acall i2cstart
+	mov a, #0A1H
+	acall i2cput
+sf_0:
+	acall i2cget
+	jz sf_1
+	lcall cout
+	ajmp sf_0
+sf_1:	
+	acall i2cstop
+	lcall newline
+	ret
+;------------------------------------------------------	
+load_and_run:
+	ajmp start
+;------------------------------------------------------
+add_dptr:
+	anl dpl, #0F0H
+	mov a, #10H		; This code just add 32D to DPTR {
+	add a, dpl
+	mov dpl, a
+	jnc srch
+	inc dph	
+	ajmp srch		;--}
 start:
 	mov a, #'>'
 	lcall cout
@@ -242,14 +298,14 @@ srch1:
 				; else
 	mov r1, a		; r1 now has symbol from table
 	mov a, @r0		; a now has symbol from bufer
-	cjne a, 01, nextcmd	; if symbols (a & r1) are not equal
+	cjne a, 01, add_dptr	; if symbols (a & r1) are not equal
 				; else, if equal then
 	inc r0
 	inc dptr
 	djnz r6, srch1
 	; There is all symbols of command is match! But programm may have more symbols, check this
 	movx a, @dptr
-	jnz nextcmd
+	jnz srch2
 	inc dptr
 	movx a, @dptr		; Haddr
 	mov r0, a
@@ -261,29 +317,11 @@ srch1:
 	clr a
 	mov r0, a
 	jmp @a+dptr     ; Run programm
+srch2:
+	dec a
+	jnz add_dptr
+	ajmp load_run
 
-nextcmd:
-	anl dpl, #0E0H
-	mov a, #32		; This code just add 32D to DPTR {
-	add a, dpl
-	mov dpl, a
-	jnc srch
-	inc dph	
-	ajmp srch		;--}
-	
-show_header:
-	acall sh_0
-	mov dptr, #hdr
-	lcall pstr
-	acall sh_0
-	ret
-sh_0:
-	mov a, #'*'
-	mov r0, #80
-sh_1:
-	lcall cout
-	djnz r0, sh_1	
-	ret
 notfound:
 	lcall newline
 	
@@ -302,47 +340,60 @@ far1:
 	lcall pstr
 	lcall newline
 	ajmp start
+
+show_header:
+	acall sh_0
+	mov dptr, #hdr
+	lcall pstr
+	acall sh_0
+	ret
+sh_0:
+	mov a, #'*'
+	mov r0, #80
+sh_1:
+	lcall cout
+	djnz r0, sh_1	
+	ret
+
+
 help:
 	mov dptr, #hlp
 	lcall pstr
 	ajmp start
-; Subroutine for scaning disk for free space
-diskinfo:
-	mov dptr, #dinf
-	lcall pstr
-	;TODO scan disk!!!
-	mov a, #0FFH		; First sector (after incrementing)
-	mov r2, #0		; Free sector counter
-di_0:
-	inc a
-	push ACC
-	acall checkfree
-	jnc di_1
-	inc r2
-di_1:
-	pop ACC
-	cjne a, #127, di_0
-	mov a, r2
-	lcall newline
-	lcall pint8u
-	mov dptr, #dinf1
-	lcall pstr
-	ajmp start		
 
-findheader:
-	mov a, #0FFH		; First sector
-fh_0:
-	inc a
-	push ACC
-	acall find
-	pop ACC
-	cjne a, #128, fh_0	
-	ret			; end of disk
-; Subroutine for searching a file header on a sector (a - number of sector)
-; OUT: if carry flag is set then file is present
-find:
-	clr C
+;----------------------------------------------------------------
+; There is loading prg from disk and run it
+load_run:
+	inc dptr
+	movx a, @dptr		; Sector number
 	mov r1, a
+	acall i2cstart
+	mov a, #0A0H						;AT24C256 Slave address TODO add register for other EEPROM's!!!
+	acall i2cput
+	mov a, r1
+	acall i2cput
+	mov a, #06H
+	acall i2cput
+	acall i2cstart
+	mov a, #0A1H
+	acall i2cput
+	acall i2cget
+	; HADDR
+	mov dph, a
+	mov r3, a
+	acall i2cget
+	; LADDR
+	mov dpl, a
+	mov r2, a
+	mov r0, #21
+srch3:
+	acall i2cget
+	djnz r0, srch3
+	mov r5, a	; HIGH size
+	acall i2cget
+	mov r4, a	; LOW size
+	acall i2cstop
+	; We have all parameters we need
 	acall i2cstart
 	mov a, #0A0H						;AT24C256 Slave address TODO add register for other EEPROM's!!!
 	acall i2cput
@@ -353,22 +404,49 @@ find:
 	acall i2cstart
 	mov a, #0A1H
 	acall i2cput
+srch4:
 	acall i2cget
-	cjne a, #0A5H, fh_1
-	acall i2cget
-	cjne a, #0E5H, fh_1
-	acall i2cget
-	cjne a, #0E0H, fh_1
-	acall i2cget
-	cjne a, #0A5H, fh_1
-	; There is we found a file in EEPROM
-	setb C
-fh_1:	
+	movx @dptr, a
+	inc dptr
+	djnz r4, srch4
+	djnz r5, srch4
 	acall i2cstop
-	ret
+	
+	mov dph, r3
+	mov a, r2
+	add a, #64
+	mov dpl, r2
+	clr a
+	jmp @a+dptr
+	ajmp start
+
+;-----------------------------------------------------------------
+; Subroutine for scaning disk for free space
+diskinfo:
+	mov dptr, #dinf
+	lcall pstr
+	mov a, #0FFH		; First sector (after incrementing)
+	mov r2, #0		; Free sector counter
+di_0:
+	inc a
+	push ACC
+	acall checkfree
+	mov a, r3
+	jz di_1
+	inc r2
+di_1:
+	pop ACC
+	cjne a, #127, di_0
+	mov a, r2
+	lcall pint8u
+	mov dptr, #dinf1
+	lcall pstr
+	ajmp start		
+
+
 ; Subroutine for check sector for 0xFFH. Number of sector in ACC
 checkfree:
-	clr C
+	mov r3, #0	; flag
 	mov r0, #0	; Byte counter
 	mov r1, a
 	acall i2cstart
@@ -383,17 +461,21 @@ checkfree:
 	acall i2cput
 fr_0:	
 	acall i2cget
-	lcall cout
 	cjne a, #0FFH, fr_1
 	djnz r0, fr_0
 	; There is all bytes in block is 0xFFH
-	setb C
+	mov r3, #1
 fr_1:	
 	acall i2cstop
 	ret
 ;===== i2cstart - sends an I2C start condition to beginn communication ======
 
-i2cstart:	call	SCLhigh			;Set SCL to high.
+i2cstart:	jb	SDA,i2c_st
+		clr	SCL
+		setb	SDA
+		setb	SCL
+i2c_st:
+		call	SCLhigh			;Set SCL to high.
 		mov	R7,#4			;Load time out counter.
 setSDA:		setb	SDA			;Set SDA to high.
 		jb	SDA,ishigh		;If not high bus is busy.
@@ -530,10 +612,12 @@ dump1:	lcall	phex16		;tell 'em the memory location
 	acall 	i2cput
 dump2:	
 	acall 	i2cget
+	lcall	phex		;print each byte in hex
 	inc 	r0
-	jnc	dump3
+	mov 	a, r0
+	jnz	dump3
 	inc 	r1
-dump3:	lcall	phex		;print each byte in hex
+dump3:			
 	mov 	a, #' '
 	lcall 	cout
 	djnz	r3, dump2
@@ -556,6 +640,8 @@ DB	"'diskinfo' - information about disk.",  0DH, 0AH
 DB	"'dump' - dump of one disk sector.",  0DH, 0AH
 DB	"'load' - copy whole disk to xram.",  0DH, 0AH
 DB	"'reboot' - reboot the PC.",  0DH, 0AH, 0DH, 0AH, 0
+dir_msg:
+DB	0DH, 0AH, "Programs found on disk:", 0DH, 0AH, 0
 dinf:
 DB	0DH, 0AH, "EEPROM disk on I2C bus.", 0DH, 0AH, "HW address - 0xA0h",  0DH, 0AH, "32768 bytes total.",  0DH, 0AH, "128 sectors by 256 bytes.",  0DH, 0AH, 0
 dinf1:
@@ -564,5 +650,22 @@ hdr:
 DB	"*                                     DOS                                      *", 0
 dmp:
 DB	0DH, 0AH, "Enter HEX address:", 0DH, 0AH, 0
+cmd_reboot:
+DB	"reboot",0,0,0
+cmd_help:
+DB	"help",0,HIGH help,LOW help
+cmd_?:
+DB	"?",0,HIGH help,LOW help
+cmd_diskinfo:
+DB	"diskinfo",0,HIGH diskinfo,LOW diskinfo
+cmd_dump:
+DB	"dump",0,HIGH dump,LOW dump
+cmd_load:
+DB	"load",0,HIGH load,LOW load
+cmd_dir:
+DB	"dir",0,HIGH dir,LOW dir
+
+
+
 		end
 
